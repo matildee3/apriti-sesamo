@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Armadio</title>
+  <style>
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      place-items: center;
+      background: #fff;
+    }
+
+    button {
+      position: relative;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    img {
+      display: block;
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+    }
+
+    #zona-buia {
+      position: absolute;
+      inset: 0;
+      clip-path:  polygon(60.5% 3.5%, 98% 4.5%, 97.5% 89%, 60.5% 91.5%);
+      background: radial-gradient(
+        circle 100px at var(--luce-x, -1000px) var(--luce-y, -1000px),
+        transparent 0,
+        rgba(0, 0, 0, 0.38) 100%
+      );
+      pointer-events: none;
+    }
+
+    .oggetto-maschera {
+      position: absolute;
+      inset: 0;
+      mask-image: radial-gradient(
+        circle 100px at var(--luce-x, -1000px) var(--luce-y, -1000px),
+        #000 0,
+        transparent 100%
+      );
+      -webkit-mask-image: radial-gradient(
+        circle 100px at var(--luce-x, -1000px) var(--luce-y, -1000px),
+        #000 0,
+        transparent 100%
+      );
+    }
+
+    #ragnatela {
+      position: absolute;
+      top: 6%;
+      right: 10%;
+      width: 20%;
+      height: auto;
+      max-width: none;
+      max-height: none;
+      opacity: 1;
+    }
+
+    #post {
+      position: absolute;
+      top: 42%;
+      left: 62%;
+      width: 16%;
+      height: auto;
+      max-width: none;
+      max-height: none;
+      opacity: 1;
+    }
+
+    #zona-buia[hidden] {
+      display: none;
+    }
+
+    #torcia {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 1;
+      width: 56px;
+      height: auto;
+      max-width: none;
+      max-height: none;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #torcia:active {
+      cursor: grabbing;
+    }
+
+    #torcia[hidden] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <button id="armadio" type="button" aria-label="Apri l'armadio">
+    <img src="img/arm1.png" alt="Armadio chiuso">
+    <span id="zona-buia" hidden>
+      <span class="oggetto-maschera">
+        <img id="ragnatela" src="img/ragnatela.png" alt="">
+      </span>
+      <span class="oggetto-maschera">
+        <img id="post" src="img/post.png" alt="">
+      </span>
+    </span>
+    
+  </button>
+  <img id="torcia" src="img/torcia.png" alt="Torcia" hidden draggable="false">
+
+  <script>
+    const pulsante = document.querySelector("#armadio");
+    const immagine = pulsante.querySelector("img");
+    const zonaBuia = document.querySelector("#zona-buia");
+    const torcia = document.querySelector("#torcia");
+    const armadioChiuso = "img/arm1.png";
+    const armadioAperto = "img/arm2.png";
+    let aperto = false;
+    let trascinamento = null;
+
+    pulsante.addEventListener("click", () => {
+      aperto = !aperto;
+      immagine.src = aperto ? armadioAperto : armadioChiuso;
+      immagine.alt = aperto ? "Armadio aperto" : "Armadio chiuso";
+      pulsante.setAttribute("aria-label", aperto ? "Chiudi l'armadio" : "Apri l'armadio");
+      torcia.hidden = !aperto;
+      zonaBuia.hidden = !aperto;
+      zonaBuia.style.setProperty("--luce-x", "-1000px");
+      zonaBuia.style.setProperty("--luce-y", "-1000px");
+      if (!aperto) {
+        trascinamento = null;
+        torcia.style.left = "";
+        torcia.style.top = "";
+        torcia.style.right = "";
+      }
+    });
+
+    function aggiornaLuce() {
+      if (!aperto) return;
+      const rettangolo = zonaBuia.getBoundingClientRect();
+      const torciaRect = torcia.getBoundingClientRect();
+      zonaBuia.style.setProperty(
+        "--luce-x",
+        `${torciaRect.left + torciaRect.width / 2 - rettangolo.left}px`
+      );
+      zonaBuia.style.setProperty(
+        "--luce-y",
+        `${torciaRect.top + torciaRect.height / 2 - rettangolo.top}px`
+      );
+    }
+
+    torcia.addEventListener("pointerdown", (evento) => {
+      const rettangolo = torcia.getBoundingClientRect();
+      trascinamento = {
+        offsetX: evento.clientX - rettangolo.left,
+        offsetY: evento.clientY - rettangolo.top
+      };
+      torcia.style.left = `${rettangolo.left}px`;
+      torcia.style.top = `${rettangolo.top}px`;
+      torcia.style.right = "auto";
+      torcia.setPointerCapture(evento.pointerId);
+      evento.preventDefault();
+      aggiornaLuce();
+    });
+
+    torcia.addEventListener("pointermove", (evento) => {
+      if (!trascinamento) return;
+      const x = Math.max(0, Math.min(
+        window.innerWidth - torcia.offsetWidth,
+        evento.clientX - trascinamento.offsetX
+      ));
+      const y = Math.max(0, Math.min(
+        window.innerHeight - torcia.offsetHeight,
+        evento.clientY - trascinamento.offsetY
+      ));
+      torcia.style.left = `${x}px`;
+      torcia.style.top = `${y}px`;
+      aggiornaLuce();
+    });
+
+    function riportaTorciaInAlto(evento) {
+      if (!trascinamento) return;
+      trascinamento = null;
+      if (torcia.hasPointerCapture(evento.pointerId)) {
+        torcia.releasePointerCapture(evento.pointerId);
+      }
+      torcia.style.left = "";
+      torcia.style.top = "";
+      torcia.style.right = "";
+      zonaBuia.style.setProperty("--luce-x", "-1000px");
+      zonaBuia.style.setProperty("--luce-y", "-1000px");
+    }
+
+    torcia.addEventListener("pointerup", riportaTorciaInAlto);
+    torcia.addEventListener("pointercancel", riportaTorciaInAlto);
+  </script>
+</body>
+</html>
